@@ -70,7 +70,12 @@ module.exports = class PetController {
     }
 
     static async getAllPets(req, res) {
-        
+        try {
+            const pets = await Pet.find().sort('-createdAt')
+            res.status(200).json(pets)
+        } catch (error) {
+            res.status(503).json({ message: error.message })
+        }
     }
 
     static async getAllUserPets(req, res) {
