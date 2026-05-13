@@ -208,9 +208,75 @@ module.exports = class PetController {
     }
 
     static async schedule(req, res) {
-        
+        const id = req.params.id
+
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            res.status(422).json({ message: 'ID de Pet inválido' })
+            return
+        }
+
+        const token = getToken(req)
+        const user = await getUserByToken(token)
+
+        try {
+            const pet = await Pet.findById(id)
+
+            if (!pet) {
+                res.status(404).json({ message: 'Pet não encontrado' })
+                return
+            }
+
+            if (pet.user._id.toString() === user._id.toString()) {
+                res.status(422).json({ message: 'O dono do pet não pode agendar visita para o próprio animal' })
+                return
+            }
+
+            pet.adopter = {
+                _id: user._id,
+                name: user.name,
+                email: user.email,
+                phone: user.phone,
+                image: user.image
+            }
+
+            await pet.save()
+
+            res.status(200).json({ message: 'Visita agendada com sucesso!' })
+        } catch (error) {
+            res.status(503).json({ message: error.message })
+        }
     }
 
     static async concludeAdoption(req, res) {
+        const id = req.params.id
+
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            res.status(422).json({ message: 'ID de Pet inválido' })
+            return
+        }
+
+        const token = getToken(req)
+        const user = await getUserByToken(token)
+
+        try {
+            const pet = await Pet.findById(id)
+
+            if (!pet) {
+                res.status(404).json({ message: 'Pet não encontrado' })
+                return
+            }
+
+            if (pet.user._id.toString() !== user._id.toString()) {
+                res.status(403).json({ message: 'Acesso negado, você não é o dono do Pet' })
+                return
+            }
+
+            pet.available = false
+            await pet.save()
+
+            res.status(200).json({ message: 'Adoção concluída com sucesso!' })
+        } catch (error) {
+            res.status(503).json({ message: error.message })
+        }
     }
 }
