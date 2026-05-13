@@ -125,7 +125,54 @@ module.exports = class PetController {
     }
 
     static async updatePet(req, res) {
-        
+        const id = req.params.id
+        const { name, age, weight, color, available } = req.body
+
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            res.status(422).json({ message: 'ID de Pet inválido' })
+            return
+        }
+
+        const token = getToken(req)
+        const user = await getUserByToken(token)
+
+        if (!user) {
+            res.status(401).json({ message: 'Usuário não autenticado' })
+            return
+        }
+
+        try {
+            const pet = await Pet.findById(id)
+
+            if (!pet) {
+                res.status(404).json({ message: 'Pet não encontrado' })
+                return
+            }
+
+            if (pet.user._id.toString() !== user._id.toString()) {
+                res.status(403).json({ message: 'Acesso negado, você não é o dono do Pet' })
+                return
+            }
+
+            const updatedData = {}
+
+            if (name) updatedData.name = name
+            if (age) updatedData.age = age
+            if (weight) updatedData.weight = weight
+            if (color) updatedData.color = color
+            if (available !== undefined) updatedData.available = available
+
+            const files = req.files
+            if (files && files.length > 0) {
+                updatedData.image = files.map((file) => file.filename)
+            }
+
+            const updatedPet = await Pet.findByIdAndUpdate(id, updatedData, { new: true })
+
+            res.status(200).json({ message: 'Pet atualizado com sucesso!', pet: updatedPet })
+        } catch (error) {
+            res.status(503).json({ message: error.message })
+        }
     }
 
     static async removePetById(req, res) {
